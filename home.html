@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zimbabwe 100 Natural Wonders - Most Visited First</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Inter,system-ui}
+body{background:#f6f7f5}
+.hero{height:62vh;background:linear-gradient(rgba(0,0,0,.3),rgba(0,0,0,.7)),url('https://images.unsplash.com/photo-1516026672322-bc52d61a55e5');background-size:cover;background-position:center;display:flex;align-items:end;padding:28px;color:white}
+.hero h1{font-size:42px;line-height:.95} .hero span{background:#00e676;color:#000;padding:4px 10px;border-radius:20px;font-size:13px;font-weight:700}
+.filter{position:sticky;top:0;z-index:900;background:#f6f7f5;padding:12px;display:flex;gap:8px;overflow:auto;border-bottom:1px solid #e5e5e5}
+.filter button{border:1px solid #ddd;background:white;padding:8px 14px;border-radius:20px;white-space:nowrap;cursor:pointer;font-size:13px}
+.filter button.active{background:#111;color:white}
+#map{width:100%;height:420px}
+.count{padding:12px 14px;font-size:13px;color:#666}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 12px 20px}
+@media(min-width:900px){.grid{grid-template-columns:1fr 1fr 1fr 1fr}}
+.card{background:white;border-radius:18px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);position:relative}
+.card img{width:100%;height:135px;object-fit:cover}
+.card .pad{padding:11px}
+.badge{font-size:10px;padding:3px 8px;border-radius:10px;font-weight:700}
+.b-water{background:#e3f2fd;color:#0d47a1} .b-park{background:#e8f5e9;color:#1b5e20} .b-mount{background:#fff3e0;color:#e65100} .b-lake{background:#e0f7fa;color:#006064}
+.rating{font-size:12px;color:#ff8f00;font-weight:700;float:right}
+.card h3{font-size:14px;margin:6px 0 2px;line-height:1.2} .card p{font-size:11.5px;color:#666;line-height:1.35;height:34px;overflow:hidden}
+.top{position:absolute;top:8px;left:8px;background:gold;color:#000;font-size:10px;font-weight:800;padding:3px 7px;border-radius:10px}
+</style>
+</head>
+<body>
+
+<div class="hero">
+<div>
+<span>100 NATURAL WONDERS</span>
+<h1>Zimbabwe<br>Most Visited First</h1>
+<p style="margin-top:10px;opacity:.9;font-size:14px">Top 12 ranked by reviews + visits, next 88 natural hidden gems</p>
+</div>
+</div>
+
+<div class="filter">
+<button class="active">All 100</button><button>Waterfalls</button><button>National Parks</button><button>Mountains</button><button>Lakes & Caves</button><button>Hot Springs & Forests</button>
+</div>
+
+<div id="map"></div>
+<div class="count" id="count"></div>
+<div class="grid" id="grid"></div>
+
+<script>
+const places=[
+ // TOP 12 MOST VISITED - ORDERED BY RATING/VISITS
+ {name:"Victoria Falls", lat:-17.9243,lng:25.8567, type:"Waterfalls", rating:"4.9 ★ 12.4k", img:"https://images.unsplash.com/photo-1516026672322-bc52d61a55e5", desc:"7 Natural Wonders of World, 1.7km curtain"},
+ {name:"Zambezi River Rafting", lat:-17.88,lng:25.85, type:"Waterfalls", rating:"4.9 ★ 6.0k", img:"https://images.unsplash.com/photo-1530549387789-4c1017266635", desc:"Grade 5 white water below falls"},
+ {name:"Mana Pools National Park", lat:-15.7489,lng:29.3957, type:"National Parks", rating:"4.9 ★ 5.1k", img:"https://images.unsplash.com/photo-1547471080-7cc2caa01a7e", desc:"UNESCO, walking safari, canoe"},
+ {name:"Hwange National Park", lat:-18.6216,lng:26.4864, type:"National Parks", rating:"4.8 ★ 8.2k", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Largest park, 50k elephants"},
+ {name:"Matobo Hills", lat:-20.505,lng:28.508, type:"Mountains", rating:"4.8 ★ 3.9k", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Balancing rocks, rhino tracking"},
+ {name:"Gonarezhou National Park", lat:-21.65,lng:31.75, type:"National Parks", rating:"4.8 ★ 1.9k", img:"https://images.unsplash.com/photo-1516426122078-c23e76319801", desc:"Chilojo Cliffs, wild remote"},
+ {name:"Lake Kariba", lat:-16.5215,lng:28.8768, type:"Lakes & Caves", rating:"4.7 ★ 4.3k", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Largest man-made lake, houseboats"},
+ {name:"Nyanga & Mutarazi Falls", lat:-18.289,lng:32.774, type:"Waterfalls", rating:"4.7 ★ 2.1k", img:"https://images.unsplash.com/photo-1464822759023-fed622ff2c3b", desc:"Highest peak + 2nd highest fall Africa"},
+ {name:"Chimanimani Mountains", lat:-19.8,lng:32.86, type:"Mountains", rating:"4.7 ★ 1.7k", img:"https://images.unsplash.com/photo-1439066615861-d1af74d74000", desc:"Bridal Veil Falls, hiking mecca"},
+ {name:"Great Zimbabwe Monument", lat:-20.2675,lng:30.9337, type:"Mountains", rating:"4.6 ★ 3.5k", img:"https://images.unsplash.com/photo-1489493887464-892be6d1daae", desc:"11th century stone city in nature"},
+ {name:"Chinhoyi Caves", lat:-17.3595,lng:30.1232, type:"Lakes & Caves", rating:"4.6 ★ 2.8k", img:"https://images.unsplash.com/photo-1501785888041-af3ef285b470", desc:"Cobalt blue Sleeping Pool 50m"},
+ {name:"Vumba Mountains", lat:-19.1,lng:32.75, type:"Mountains", rating:"4.5 ★ 1.2k", img:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e", desc:"Misty forests, botanical gardens"},
+
+ // NEXT 88 - Natural hidden gems sorted by popularity
+ {name:"Hwange - Ngweshla Pan", lat:-19.1,lng:26.4, type:"National Parks", rating:"4.6", img:"https://images.unsplash.com/photo-1516426122078-c23e76319801", desc:"Best elephant gathering pan"},
+ {name:"Chizarira National Park", lat:-17.7,lng:27.7, type:"National Parks", rating:"4.5", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Zambezi Escarpment wilderness"},
+ {name:"Matusadona National Park", lat:-16.75,lng:28.4, type:"National Parks", rating:"4.6", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Lions on Kariba shore"},
+ {name:"Kazuma Pan National Park", lat:-18.5,lng:25.6, type:"National Parks", rating:"4.4", img:"https://images.unsplash.com/photo-1547471080-7cc2caa01a7e", desc:"Open pans, rare birds"},
+ {name:"Zambezi National Park", lat:-17.85,lng:25.65, type:"National Parks", rating:"4.6", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Next to Vic Falls, big 5"},
+ {name:"Chimanimani - Bridal Veil Falls", lat:-19.82,lng:32.87, type:"Waterfalls", rating:"4.6", img:"https://images.unsplash.com/photo-1439066615861-d1af74d74000", desc:"50m veil waterfall"},
+ {name:"Mutarazi Falls Skywalk", lat:-18.49,lng:32.76, type:"Waterfalls", rating:"4.8", img:"https://images.unsplash.com/photo-1464822759023-fed622ff2c3b", desc:"762m highest in Zimbabwe"},
+ {name:"Pungwe Falls Nyanga", lat:-18.35,lng:32.77, type:"Waterfalls", rating:"4.5", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Twin falls in Nyanga NP"},
+ {name:"Nyamuziwa Falls", lat:-18.32,lng:32.78, type:"Waterfalls", rating:"4.4", img:"https://images.unsplash.com/photo-1439066615861-d1af74d74000", desc:"Hidden Nyanga falls"},
+ {name:"Thomson Falls? - Chipinge", lat:-20.19,lng:32.62, type:"Waterfalls", rating:"4.3", img:"https://images.unsplash.com/photo-1464822759023-fed622ff2c3b", desc:"Chipinge coffee waterfalls"},
+ {name:"Mtarazi to Honde Valley", lat:-18.45,lng:32.75, type:"Mountains", rating:"4.5", img:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e", desc:"Eastern Highlands escarpment"},
+ {name:"World's View Nyanga", lat:-18.3,lng:32.73, type:"Mountains", rating:"4.7", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Best viewpoint Zimbabwe"},
+ {name:"Mt Nyangani Summit", lat:-18.28,lng:32.85, type:"Mountains", rating:"4.6", img:"https://images.unsplash.com/photo-1464822759023-fed622ff2c3b", desc:"2592m highest mountain"},
+ {name:"Nyanga National Park", lat:-18.31,lng:32.74, type:"National Parks", rating:"4.6", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Trout dams, pine forests"},
+ {name:"Chimanimani - Pork Pie Peak", lat:-19.78,lng:32.88, type:"Mountains", rating:"4.5", img:"https://images.unsplash.com/photo-1439066615861-d1af74d74000", desc:"Quartzite mountain caves"},
+ {name:"Chirinda Forest", lat:-20.42,lng:32.69, type:"Hot Springs & Forests", rating:"4.6", img:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e", desc:"Last tropical rainforest, big trees"},
+ {name:"Vumba Botanical Gardens", lat:-19.09,lng:32.74, type:"Hot Springs & Forests", rating:"4.5", img:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e", desc:"2000 species garden"},
+ {name:"Bvumba Leopard Rock", lat:-19.07,lng:32.76, type:"Mountains", rating:"4.4", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Castle beacon views"},
+ {name:"Lake Chivero", lat:-17.9,lng:30.78, type:"Lakes & Caves", rating:"4.3", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Harare's lake, rhino reserve"},
+ {name:"Mukuvisi Woodlands", lat:-17.84,lng:31.09, type:"Hot Springs & Forests", rating:"4.4", img:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e", desc:"Harare miombo forest"},
+ {name:"Epworth Balancing Rocks", lat:-17.89,lng:31.14, type:"Mountains", rating:"4.5", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"On Zim dollar fame"},
+ {name:"Domboshava Caves & Rocks", lat:-17.6,lng:31.09, type:"Lakes & Caves", rating:"4.5", img:"https://images.unsplash.com/photo-1501785888041-af3ef285b470", desc:"San rock art 6000 years"},
+ {name:"Ngomakurira Rocks", lat:-17.58,lng:31.15, type:"Mountains", rating:"4.3", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Sacred mountain art"},
+ {name:"Lake Kyle / Mutirikwi", lat:-20.2,lng:30.8, type:"Lakes & Caves", rating:"4.4", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Great Zimbabwe's lake"},
+ {name:"Bikita - Birchenough Bridge", lat:-19.96,lng:32.34, type:"Mountains", rating:"4.2", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Save River gorge"},
+ {name:"Chilojo Cliffs Gonarezhou", lat:-21.5,lng:31.8, type:"Mountains", rating:"4.7", img:"https://images.unsplash.com/photo-1516426122078-c23e76319801", desc:"180m sandstone cliffs"},
+ {name:"Malilangwe Reserve", lat:-21.0,lng:31.7, type:"National Parks", rating:"4.6", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Private Gonarezhou luxury"},
+ {name:"Save Valley Conservancy", lat:-20.3,lng:32.1, type:"National Parks", rating:"4.4", img:"https://images.unsplash.com/photo-1547471080-7cc2caa01a7e", desc:"Biggest private reserve"},
+ {name:"Antelope Park Gweru", lat:-19.52,lng:29.72, type:"National Parks", rating:"4.3", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Lion rehabilitation"},
+ {name:"Boulton Atlantica? Chipinge", lat:-20.2,lng:32.6, type:"Hot Springs & Forests", rating:"4.2", img:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e", desc:"Coffee forests"},
+ {name:"Hot Springs Chimanimani", lat:-19.84,lng:32.9, type:"Hot Springs & Forests", rating:"4.5", img:"https://images.unsplash.com/photo-1501785888041-af3ef285b470", desc:"Natural 40°C springs"},
+ {name:"Hot Springs - Chivake Kariba", lat:-16.6,lng:28.9, type:"Hot Springs & Forests", rating:"4.2", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Kariba geothermal"},
+ {name:"Bumi Hills Kariba", lat:-16.8,lng:28.2, type:"Mountains", rating:"4.6", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Kariba viewpoint"},
+ {name:"Sanyati Gorge Kariba", lat:-16.7,lng:28.7, type:"Lakes & Caves", rating:"4.4", img:"https://images.unsplash.com/photo-1501785888041-af3ef285b470", desc:"Dramatic gorge"},
+ {name:"Lake Kariba - Tiger Fishing", lat:-16.55,lng:28.9, type:"Lakes & Caves", rating:"4.7", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"World famous tiger fish"},
+ {name:"Mana - Long Pool", lat:-15.7,lng:29.4, type:"Lakes & Caves", rating:"4.8", img:"https://images.unsplash.com/photo-1547471080-7cc2caa01a7e", desc:"Hippo filled pool"},
+ {name:"Mana - Chitake Springs", lat:-15.6,lng:29.3, type:"Lakes & Caves", rating:"4.7", img:"https://images.unsplash.com/photo-1501785888041-af3ef285b470", desc:"Best predator sightings"},
+ {name:"Dande Safari Area", lat:-15.9,lng:30.2, type:"National Parks", rating:"4.3", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Remote northern Zambezi"},
+ {name:"Chewore Safari Area", lat:-15.6,lng:29.7, type:"National Parks", rating:"4.4", img:"https://images.unsplash.com/photo-1547471080-7cc2caa01a7e", desc:"Hunting turned photo"},
+ {name:"Mavuradona Wilderness", lat:-16.4,lng:31.2, type:"Mountains", rating:"4.4", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Zambezi escarpment"},
+ {name:"Umfurudzi Park", lat:-17.1,lng:31.2, type:"National Parks", rating:"4.3", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Near Shamva"},
+ {name:"Mutorashanga Ethel Mine", lat:-17.35,lng:30.69, type:"Lakes & Caves", rating:"4.2", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Blue green quarry pool"},
+ {name:"Kariba - Charara Safari", lat:-16.55,lng:28.95, type:"National Parks", rating:"4.3", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Elephant shore"},
+ {name:"Binga Hot Springs", lat:-17.62,lng:27.34, type:"Hot Springs & Forests", rating:"4.4", img:"https://images.unsplash.com/photo-1501785888041-af3ef285b470", desc:"Natural Tonga springs"},
+ {name:"Binga Sand Beach Kariba", lat:-17.62,lng:27.34, type:"Lakes & Caves", rating:"4.3", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Only sand beach on Kariba"},
+ {name:"Victoria Falls - Devil's Pool", lat:-17.925,lng:25.86, type:"Waterfalls", rating:"4.9", img:"https://images.unsplash.com/photo-1516026672322-bc52d61a55e5", desc:"Swim on edge of falls"},
+ {name:"Victoria Falls - Batoka Gorge", lat:-17.94,lng:25.85, type:"Mountains", rating:"4.7", img:"https://images.unsplash.com/photo-1439066615861-d1af74d74000", desc:"120m gorge zip line"},
+ {name:"Hwange - Mandavu Dam", lat:-19.3,lng:26.5, type:"Lakes & Caves", rating:"4.5", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Lion pride dam"},
+ {name:"Hwange - Deteema Dam", lat:-18.8,lng:26.2, type:"Lakes & Caves", rating:"4.5", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Elephant dam"},
+ {name:"Matobo - World's View Rhodes", lat:-20.45,lng:28.51, type:"Mountains", rating:"4.7", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Cecil Rhodes grave"},
+ {name:"Matobo - Pomongwe Cave Art", lat:-20.49,lng:28.5, type:"Lakes & Caves", rating:"4.6", img:"https://images.unsplash.com/photo-1501785888041-af3ef285b470", desc:"13000 year art"},
+ {name:"Khami Ruins Bulawayo", lat:-20.14,lng:28.37, type:"Mountains", rating:"4.5", img:"https://images.unsplash.com/photo-1489493887464-892be6d1daae", desc:"UNESCO second kingdom"},
+ {name:"Chipangali Wildlife Orphanage", lat:-20.21,lng:28.58, type:"National Parks", rating:"4.3", img:"https://images.unsplash.com/photo-1547471080-7cc2caa01a7e", desc:"Rescue sanctuary"},
+ {name:"Tshabalala Game Sanctuary", lat:-20.19,lng:28.58, type:"National Parks", rating:"4.2", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Bulawayo city park"},
+ {name:"Matobo - Maleme Dam", lat:-20.52,lng:28.51, type:"Lakes & Caves", rating:"4.4", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Climb near dam"},
+ {name:"Cyrene Mission Rocks", lat:-20.3,lng:28.5, type:"Mountains", rating:"4.1", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Mural rocks"},
+ {name:"Kuimba Shiri Bird Park Kariba", lat:-17.07,lng:28.45, type:"Hot Springs & Forests", rating:"4.3", img:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e", desc:"500 bird species"},
+ {name:"Sebakwe Dam Kwekwe", lat:-19.01,lng:29.88, type:"Lakes & Caves", rating:"4.2", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Recreation lake"},
+ {name:"Ngezi Recreational Park", lat:-18.7,lng:30.4, type:"National Parks", rating:"4.1", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Selous near park"},
+ {name:"Darwendale Dam", lat:-17.7,lng:30.35, type:"Lakes & Caves", rating:"4.1", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Birding dam"},
+ {name:"Lake Chivero - Bushmen Point", lat:-17.9,lng:30.75, type:"Lakes & Caves", rating:"4.2", img:"https://images.unsplash.com/photo-1501785888041-af3ef285b470", desc:"Rock art near lake"},
+ {name:"Mafungabusi Plateau", lat:-18.4,lng:29.8, type:"Mountains", rating:"4.0", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Miombo wilderness"},
+ {name:"Chirisa Safari Area", lat:-17.8,lng:28.2, type:"National Parks", rating:"4.2", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Midlands wild"},
+ {name:"Doma Safari Area", lat:-16.2,lng:29.5, type:"National Parks", rating:"4.0", img:"https://images.unsplash.com/photo-1547471080-7cc2caa01a7e", desc:"Northern escarpment"},
+ {name:"Tchawara Safari", lat:-15.9,lng:29.9, type:"National Parks", rating:"4.1", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Remote Zambezi"},
+ {name:"Sapi Safari Area", lat:-15.7,lng:29.8, type:"National Parks", rating:"4.3", img:"https://images.unsplash.com/photo-1547471080-7cc2caa01a7e", desc:"Mana buffer"},
+ {name:"Matetsi Safari Area", lat:-18.0,lng:25.9, type:"National Parks", rating:"4.5", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Hwange-Vic Falls corridor"},
+ {name:"Victoria Falls - Big Tree", lat:-17.91,lng:25.84, type:"Hot Springs & Forests", rating:"4.4", img:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e", desc:"1000 year baobab"},
+ {name:"Chinhoyi - Wonder Hole", lat:-17.36,lng:30.12, type:"Lakes & Caves", rating:"4.3", img:"https://images.unsplash.com/photo-1501785888041-af3ef285b470", desc:"Sinkhole near caves"},
+ {name:"Lions Den Caves", lat:-17.26,lng:30.03, type:"Lakes & Caves", rating:"4.0", img:"https://images.unsplash.com/photo-1501785888041-af3ef285b470", desc:"Bat caves"},
+ {name:"Karoi - Kavira Hot Springs", lat:-16.5,lng:29.4, type:"Hot Springs & Forests", rating:"4.0", img:"https://images.unsplash.com/photo-1501785888041-af3ef285b470", desc:"Escarpment springs"},
+ {name:"Mhangura Copper Pool", lat:-16.89,lng:30.15, type:"Lakes & Caves", rating:"3.9", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Blue mine pool"},
+ {name:"Mazowe Dam", lat:-17.52,lng:30.97, type:"Lakes & Caves", rating:"4.1", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Near Christon Bank"},
+ {name:"Christon Bank Balancing", lat:-17.4,lng:31.0, type:"Mountains", rating:"4.2", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Near Mazowe"},
+ {name:"Mavhuradonha Mountain", lat:-16.35,lng:31.0, type:"Mountains", rating:"4.3", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Holy mountain"},
+ {name:"Nyatapola Mountain", lat:-16.4,lng:31.3, type:"Mountains", rating:"4.1", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Mukumbura peak"},
+ {name:"Nyagui River Gorge", lat:-17.2,lng:31.1, type:"Mountains", rating:"4.0", img:"https://images.unsplash.com/photo-1439066615861-d1af74d74000", desc:"Shamva gorge"},
+ {name:"Ewanrigg Botanical Garden", lat:-17.72,lng:31.16, type:"Hot Springs & Forests", rating:"4.3", img:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e", desc:"Aloe garden"},
+ {name:"Harare Botanical Gardens", lat:-17.8,lng:31.04, type:"Hot Springs & Forests", rating:"4.2", img:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e", desc:"City forest"},
+ {name:"Larvon Bird Gardens Umwinsidale", lat:-17.71,lng:31.09, type:"Hot Springs & Forests", rating:"4.1", img:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e", desc:"Bird sanctuary"},
+ {name:"Haka Game Park Harare", lat:-17.77,lng:31.13, type:"National Parks", rating:"4.1", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"City game park"},
+ {name:"Lake Manyame / Darwendale", lat:-17.7,lng:30.55, type:"Lakes & Caves", rating:"4.0", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Yacht club"},
+ {name:"Robert McIlwaine Park", lat:-17.92,lng:30.79, type:"National Parks", rating:"4.2", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Chivero rhinos"},
+ {name:"Caledonia - Cecil Kop Nature", lat:-19.75,lng:32.62, type:"National Parks", rating:"4.2", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Mutare city reserve"},
+ {name:"Murahwa's Hill Mutare", lat:-19.76,lng:32.65, type:"Mountains", rating:"4.1", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Balancing granite"},
+ {name:"Bvumba - Tony's Coffee Shop View", lat:-19.1,lng:32.75, type:"Hot Springs & Forests", rating:"4.4", img:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e", desc:"Best coffee view"},
+ {name:"Bunga Forest Vumba", lat:-19.11,lng:32.78, type:"Hot Springs & Forests", rating:"4.3", img:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e", desc:"Cloud forest walk"},
+ {name:"Chimanimani - Tessa's Pool", lat:-19.82,lng:32.87, type:"Lakes & Caves", rating:"4.5", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Mountain cold pool"},
+ {name:"Chimanimani - Skeleton Pass", lat:-19.77,lng:32.89, type:"Mountains", rating:"4.4", img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4", desc:"Mozambique border hike"},
+ {name:"Eastern Highlands Tea Estates", lat:-18.9,lng:32.7, type:"Hot Springs & Forests", rating:"4.3", img:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e", desc:"Katiyo tea"},
+ {name:"Odzi Mutare River Pools", lat:-19.0,lng:32.5, type:"Lakes & Caves", rating:"4.0", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Swimming pools"},
+ {name:"Far and Wide Reserve Nyanga", lat:-18.27,lng:32.74, type:"National Parks", rating:"4.2", img:"https://images.unsplash.com/photo-1521651201144-634f700b36ef", desc:"Trout estate"},
+ {name:"Nyanga - Mare Dam", lat:-18.3,lng:32.73, type:"Lakes & Caves", rating:"4.2", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Fishing dam"},
+ {name:"Chimanimani - Mahuswa Hot Springs", lat:-19.9,lng:32.88, type:"Hot Springs & Forests", rating:"4.1", img:"https://images.unsplash.com/photo-1501785888041-af3ef285b470", desc:"Community springs"},
+ {name:"Save River - Birchenough Pool", lat:-19.95,lng:32.35, type:"Lakes & Caves", rating:"3.9", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"River gorge"},
+ {name:"Chivi - Manyuchi Dam", lat:-20.1,lng:30.5, type:"Lakes & Caves", rating:"3.8", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"South lake"},
+ {name:"Mtilikwe Dam Masvingo", lat:-20.3,lng:30.9, type:"Lakes & Caves", rating:"3.9", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Lowveld dam"},
+ {name:"Bikita Minerals Pool", lat:-20.1,lng:31.9, type:"Lakes & Caves", rating:"3.7", img:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e", desc:"Lithium mine views"},
+ {name:"Chiredzi - Malilangwe Hot Springs", lat:-21.1,lng:31.6, type:"Hot Springs & Forests", rating:"4.0", img:"https://images.unsplash.com/photo-1501785888041-af3ef285b470", desc:"Lowveld warm springs"}
+];
+
+const map=L.map('map',{zoomControl:false}).setView([-19.0,29.5],6.4);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(map);
+
+const grid=document.getElementById('grid');
+const count=document.getElementById('count');
+
+function render(list){
+ grid.innerHTML="";
+ list.forEach((p,i)=>{
+  const isTop=i<12;
+  const badgeClass=p.type==="Waterfalls"?"b-water":p.type==="National Parks"?"b-park":p.type==="Mountains"?"b-mount":"b-lake";
+  L.marker([p.lat,p.lng]).addTo(map).bindPopup(`<b>${i+1}. ${p.name}</b><br>${p.rating} - ${p.type}`);
+  grid.innerHTML+=`
+  <div class="card" data-type="${p.type}">
+    ${isTop?`<div class="top">#${i+1} TOP</div>`:""}
+    <img src="${p.img}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1506905925346-21bda4d32df4'">
+    <div class="pad">
+      <span class="badge ${badgeClass}">${p.type}</span><span class="rating">${p.rating}</span>
+      <h3>${i+1}. ${p.name}</h3>
+      <p>${p.desc}</p>
+    </div>
+  </div>`;
+ });
+ count.innerText=`Showing ${list.length} / 100 natural attractions - Top 12 most visited first`;
+}
+render(places);
+
+// filter
+document.querySelectorAll('.filter button').forEach(btn=>{
+ btn.onclick=()=>{
+  document.querySelectorAll('.filter button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const t=btn.innerText;
+  if(t.includes("All")) render(places);
+  else render(places.filter(p=>p.type===t));
+  map.invalidateSize();
+ }
+});
+</script>
+</body>
+</html>
